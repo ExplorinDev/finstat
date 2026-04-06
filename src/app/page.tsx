@@ -1,63 +1,147 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { SearchBar } from "@/components/SearchBar";
+import { SidloFilter } from "@/components/SidloFilter";
+import { CompanyCard } from "@/components/CompanyCard";
+import { Pagination } from "@/components/Pagination";
+
+interface CompanyBasic {
+  ico: string;
+  name: string;
+  address: string;
+  city: string;
+}
+
+interface SearchResponse {
+  total: number;
+  companies: CompanyBasic[];
+  cities: string[];
+  page: number;
+  pageSize: number;
+}
 
 export default function Home() {
+  const [results, setResults] = useState<SearchResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentQuery, setCurrentQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [citySearch, setCitySearch] = useState("");
+
+  const doSearch = async (query: string, page: number = 0) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, page }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Search failed");
+      }
+      const data: SearchResponse = await res.json();
+      setResults(data);
+      setCurrentQuery(query);
+      setCurrentPage(page);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Chyba vyhledávání");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (query: string) => {
+    setSelectedCity(null);
+    setCitySearch("");
+    doSearch(query, 0);
+  };
+
+  const handlePageChange = (page: number) => {
+    doSearch(currentQuery, page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const displayedCompanies = results
+    ? selectedCity
+      ? results.companies.filter(
+          (c) => c.city.toLowerCase() === selectedCity.toLowerCase()
+        )
+      : citySearch
+        ? results.companies.filter((c) =>
+            c.city.toLowerCase().includes(citySearch.toLowerCase())
+          )
+        : results.companies
+    : [];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Rejstřík firem ČR
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <SearchBar onSearch={handleSearch} isLoading={loading} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      {/* Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-6">
+          {/* Sidebar - Filter (always visible) */}
+          <aside className="w-56 shrink-0">
+            <SidloFilter
+              cities={results?.cities ?? []}
+              selected={selectedCity}
+              onSelect={setSelectedCity}
+              searchText={citySearch}
+              onSearchChange={setCitySearch}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </aside>
+
+          {/* Results */}
+          <div className="flex-1 space-y-3">
+            {!results && !loading && !error && (
+              <div className="text-center py-20 text-gray-400">
+                <p className="text-lg">Zadejte název firmy nebo IČO pro vyhledávání</p>
+              </div>
+            )}
+
+            {results && displayedCompanies.length === 0 && !loading && (
+              <p className="text-gray-400 text-center py-10">
+                Žádné výsledky
+              </p>
+            )}
+
+            {displayedCompanies.map((company) => (
+              <CompanyCard
+                key={company.ico}
+                ico={company.ico}
+                name={company.name}
+                address={company.address}
+                city={company.city}
+              />
+            ))}
+
+            {results && !selectedCity && !citySearch && (
+              <Pagination
+                page={currentPage}
+                total={results.total}
+                pageSize={results.pageSize}
+                onPageChange={handlePageChange}
+              />
+            )}
+          </div>
         </div>
       </main>
     </div>

@@ -2,6 +2,9 @@ FROM node:24-slim AS base
 
 WORKDIR /app
 
+# Install OpenSSL (required by Prisma)
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -12,7 +15,8 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
-# Apply any pending migrations
+# Apply any pending migrations (DATABASE_URL needed for migrate deploy)
+ENV DATABASE_URL="file:./prisma/dev.db"
 RUN npx prisma migrate deploy
 
 # Build Next.js
@@ -23,8 +27,11 @@ FROM node:24-slim AS production
 
 WORKDIR /app
 
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV DATABASE_URL="file:./prisma/dev.db"
 
 COPY --from=base /app/.next ./.next
 COPY --from=base /app/node_modules ./node_modules
@@ -33,7 +40,6 @@ COPY --from=base /app/public ./public
 COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/next.config.ts ./next.config.ts
 COPY --from=base /app/tsconfig.json ./tsconfig.json
-COPY --from=base /app/.env ./.env
 
 EXPOSE 8080
 

@@ -1,0 +1,48 @@
+steps:
+  # Install git-lfs and pull LFS files (dev.db)
+  - name: "gcr.io/cloud-builders/git"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        apt-get install -y git-lfs
+        git lfs install
+        git lfs pull
+
+  # Build Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - build
+      - -t
+      - "$_IMAGE_NAME"
+      - .
+
+  # Push to Artifact Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - push
+      - "$_IMAGE_NAME"
+
+  # Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - finstat
+      - --image=$_IMAGE_NAME
+      - --region=$_REGION
+      - --platform=managed
+      - --allow-unauthenticated
+      - --memory=1Gi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=3
+      - --port=8080
+
+substitutions:
+  _REGION: europe-west1
+  _IMAGE_NAME: europe-west1-docker.pkg.dev/$PROJECT_ID/finstat/app:$COMMIT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY

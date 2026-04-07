@@ -1,4 +1,4 @@
-FROM node:24-slim AS base
+FROM node:24-slim AS build
 
 WORKDIR /app
 
@@ -12,14 +12,12 @@ RUN npm ci
 # Copy source (includes pre-built dev.db from Git LFS)
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Apply any pending migrations (DATABASE_URL needed for migrate deploy)
+# Set DATABASE_URL for Prisma
 ENV DATABASE_URL="file:./prisma/dev.db"
-RUN npx prisma migrate deploy
 
-# Build Next.js
+# Generate Prisma client + apply migrations + build Next.js
+RUN npx prisma generate
+RUN npx prisma migrate deploy
 RUN npm run build
 
 # --- Production image ---
@@ -33,14 +31,14 @@ ENV NODE_ENV=production
 ENV PORT=8080
 ENV DATABASE_URL="file:./prisma/dev.db"
 
-COPY --from=base /app/.next ./.next
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/public ./public
-COPY --from=base /app/prisma ./prisma
-COPY --from=base /app/next.config.ts ./next.config.ts
-COPY --from=base /app/tsconfig.json ./tsconfig.json
+# Copy standalone build output
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+
+# Copy database
+COPY --from=build /app/prisma ./prisma
 
 EXPOSE 8080
 
-CMD ["npm", "start", "--", "-p", "8080"]
+CMD ["node", "server.js"]

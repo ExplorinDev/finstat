@@ -9,7 +9,21 @@ steps:
         cp /tmp/git-lfs-3.6.1/git-lfs /usr/local/bin/git-lfs
         git lfs install
         git lfs pull
-        ls -lh prisma/dev.db
+        echo "dev.db size:" && ls -lh prisma/dev.db
+
+  # Ensure Artifact Registry repository exists
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        gcloud artifacts repositories describe finstat \
+          --location=europe-central2 \
+          --project=$PROJECT_ID 2>/dev/null \
+        || gcloud artifacts repositories create finstat \
+          --repository-format=docker \
+          --location=europe-central2 \
+          --project=$PROJECT_ID
 
   # Build Docker image
   - name: "gcr.io/cloud-builders/docker"

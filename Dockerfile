@@ -15,9 +15,8 @@ COPY . .
 # Set DATABASE_URL for Prisma
 ENV DATABASE_URL="file:./prisma/dev.db"
 
-# Generate Prisma client + apply migrations + build Next.js
+# Generate Prisma client + build Next.js
 RUN npx prisma generate
-RUN npx prisma migrate deploy
 RUN npm run build
 
 # --- Production image ---

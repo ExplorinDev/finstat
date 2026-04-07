@@ -35,7 +35,11 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 
-# Copy database
+# Copy Prisma client + engine (not included in standalone trace)
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+
+# Copy database + schema
 COPY --from=build /app/prisma ./prisma
 
 EXPOSE 8080

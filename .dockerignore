@@ -1,0 +1,9 @@
+node_modules
+.next
+*.db
+*.db-journal
+res_data.csv
+sync-progress.json
+sync.log
+.git
+.DS_Store

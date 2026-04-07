@@ -217,6 +217,66 @@ export async function searchCompanies(
   return { total: data.pocetCelkem, companies };
 }
 
+// --- Sync search: search by name prefix + legal form ---
+
+export async function searchByPrefix(
+  prefix: string,
+  legalForm: string,
+  start: number = 0,
+  count: number = 1000
+): Promise<{ total: number; companies: CompanyBasic[]; legalForm: string }> {
+  const body: Record<string, unknown> = {
+    start,
+    pocet: count,
+    obchodniJmeno: prefix,
+    pravniForma: [legalForm],
+  };
+
+  const res = await fetch(`${ARES_BASE}/ekonomicke-subjekty/vyhledat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    if (res.status === 404) return { total: 0, companies: [], legalForm };
+    try {
+      const err = await res.json();
+      if (err.subKod === "VYSTUP_PRILIS_MNOHO_VYSLEDKU") {
+        return { total: Infinity, companies: [], legalForm };
+      }
+      throw new Error(
+        err.popis?.split("|")[0] || `ARES search failed: ${res.status}`
+      );
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        e.message !== `ARES search failed: ${res.status}`
+      )
+        throw e;
+      throw new Error(`ARES search failed: ${res.status}`);
+    }
+  }
+
+  const data: AresSearchResult = await res.json();
+
+  const companies: CompanyBasic[] = (data.ekonomickeSubjekty || []).map(
+    (s) => ({
+      ico: s.ico,
+      name: s.obchodniJmeno,
+      address: s.sidlo?.textovaAdresa || "",
+      city: s.sidlo?.nazevObce || "",
+      region: s.sidlo?.nazevKraje,
+      district: s.sidlo?.nazevOkresu,
+    })
+  );
+
+  return { total: data.pocetCelkem, companies, legalForm };
+}
+
 export async function getCompanyDetail(
   ico: string
 ): Promise<CompanyDetail | null> {

@@ -45,3 +45,8 @@ next-env.d.ts
 # database
 *.db
 *.db-journal
+
+# sync
+res_data.csv
+sync-progress.json
+sync.log

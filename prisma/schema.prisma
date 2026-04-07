@@ -24,6 +24,10 @@ model Company {
 
   statutoryMembers StatutoryMember[]
   shareholders     Shareholder[]
+
+  @@index([name])
+  @@index([legalForm])
+  @@index([city])
 }
 
 model StatutoryMember {

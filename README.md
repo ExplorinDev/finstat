@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Finstat — Český obchodný register
 
-## Getting Started
+Webová aplikácia na prehliadanie všetkých aktívnych firiem v Českej republike (s.r.o., a.s., k.s., v.o.s.). Dáta pochádzajú z ČSÚ RES open data a ARES VR API.
 
-First, run the development server:
+**Live:** https://finstat-82735485330.europe-central2.run.app
+
+---
+
+## Funkcie
+
+- **604 000+ firiem** zoradených A–Z
+- **Filtrovanie podľa mesta** — okamžité výsledky z lokálnej DB
+- **Vyhľadávanie** — fulltext cez ARES API
+- **Detail firmy** — jednatelia, spoločníci, sídlo (načítané on-demand z ARES VR)
+
+## Spustenie lokálne
 
 ```bash
+# Vyžaduje Node.js v24 (nvm)
+export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Inštalácia závislostí
+npm install
+
+# Stiahnutie DB (Git LFS)
+git lfs pull
+
+# Spustenie dev servera
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Otvor [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Obnova databázy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Dáta sa aktualizujú 2× mesačne na stránke ČSÚ. Pre refresh:
 
-## Learn More
+```bash
+npm run sync   # stiahne nový RES CSV (~513 MB) a importuje do SQLite
+```
 
-To learn more about Next.js, take a look at the following resources:
+Po sync commitni novú DB:
+```bash
+git add prisma/dev.db && git commit -m "Update DB" && git push
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment (Google Cloud Run)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Push na `main` = automatický redeploy cez Cloud Build.
 
-## Deploy on Vercel
+```bash
+git push origin main
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Build trvá ~5 minút. DB je baked do Docker image cez Git LFS.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Technológie
+
+| Vrstva | Technológia |
+|--------|-------------|
+| Frontend | Next.js 16, React 19, Tailwind CSS v4, shadcn/ui |
+| Backend | Next.js API Routes |
+| Databáza | SQLite (Prisma 6), 122 MB, 604k záznamov |
+| Dáta | ČSÚ RES CSV + ARES VR API |
+| Deployment | Docker, Google Cloud Run, Artifact Registry |
+| Verzia kontrola DB | Git LFS |
+
+---
+
+## Známe limitácie
+
+### Dáta
+- **Žiadne finančné údaje** — ARES VR API neposkytuje tržby, zisk ani účtovné závierky. Tie sú dostupné len ako PDF na [justice.cz](https://justice.cz).
+- **Oneskorené aktualizácie** — ČSÚ RES CSV sa aktualizuje 2× mesačne. Nové firmy sa objavia s oneskorením až 2 týždne. Pre okamžité dáta by bolo potrebné priame napojenie na ARES API.
+- **Len 4 právne formy** — s.r.o., a.s., k.s., v.o.s. Živnostníci (OSVČ), družstvá, štátne podniky a iné formy nie sú zahrnuté.
+- **Bez histórie** — zobrazuje len aktuálny stav. Historické zmeny (predchádzajúci jednatelia, staré adresy) nie sú k dispozícii.
+
+### Detail firmy (ARES VR)
+- **Rate limit 500 req/min** — pri vysokej návštevnosti môže byť detail pomalší.
+- **Cache 24 hodín** — po prvom načítaní sa detail uloží do DB na 24h. Ak ARES medzitým aktualizuje dáta, zobrazia sa až po expirácii cache.
+- **Nie všetky firmy majú VR záznam** — niektoré staršie s.r.o. nie sú v Obchodnom registri (Veřejný rejstřík), detail bude prázdny.
+
+### Databáza & Deployment
+- **SQLite nie je vhodný pre vysokú záťaž** — pri súbežných zápisoch (caching detailov) môže dôjsť k zamknutiu DB. Pre produkciu s väčšou návštevnosťou odporúčame migráciu na PostgreSQL (napr. Neon, Supabase).
+- **DB v Docker image** — každý sync vyžaduje nový build a redeploy (~5 min). Nie je možné aktualizovať DB bez redeployu.
+- **Cloud Run scale-to-zero** — pri prvom requeste po dlhej nečinnosti môže byť cold start ~2–3 sekundy.
+- **Bez perzistentného storage** — záznamy z ARES VR API cachované počas behu kontajnera sa stratia pri reštarte/redeployi.
+
+### Vyhľadávanie
+- **ARES API limit 1000 výsledkov** — pre populárne výrazy (napr. "Auto") vráti ARES chybu. Riešenie: spresniť dotaz.
+- **Vyhľadávanie nie je fulltext** — ARES API robí word-token matching, nie substring search. Hľadanie "nova" nenájde "Inovace s.r.o.".

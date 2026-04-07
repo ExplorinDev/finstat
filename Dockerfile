@@ -13,7 +13,7 @@ RUN npm ci
 COPY . .
 
 # Set DATABASE_URL for Prisma
-ENV DATABASE_URL="file:./prisma/dev.db"
+ENV DATABASE_URL="file:./dev.db"
 
 # Generate Prisma client + build Next.js
 RUN npx prisma generate
@@ -28,7 +28,7 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 ENV NODE_ENV=production
 ENV PORT=8080
-ENV DATABASE_URL="file:./prisma/dev.db"
+ENV DATABASE_URL="file:./dev.db"
 
 # Copy standalone build output
 COPY --from=build /app/.next/standalone ./

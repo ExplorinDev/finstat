@@ -1,13 +1,13 @@
 steps:
-  # Install git-lfs and pull LFS files (dev.db)
+  # Download git-lfs binary and pull LFS files (dev.db)
   - name: "gcr.io/cloud-builders/git"
     entrypoint: "bash"
     args:
       - "-c"
       - |
-        apt-get install -y git-lfs
-        git lfs install
-        git lfs pull
+        curl -sL https://github.com/git-lfs/git-lfs/releases/download/v3.6.1/git-lfs-linux-amd64-v3.6.1.tar.gz | tar xz -C /tmp
+        /tmp/git-lfs-3.6.1/git-lfs install
+        /tmp/git-lfs-3.6.1/git-lfs pull
 
   # Build Docker image
   - name: "gcr.io/cloud-builders/docker"

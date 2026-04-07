@@ -1,4 +1,4 @@
-# Finstat — Český obchodný register
+# Finstat 2.0 — Český obchodný register
 
 Webová aplikácia na prehliadanie všetkých aktívnych firiem v Českej republike (s.r.o., a.s., k.s., v.o.s.). Dáta pochádzajú z ČSÚ RES open data a ARES VR API.
 
@@ -69,13 +69,12 @@ Build trvá ~5 minút. DB je baked do Docker image cez Git LFS.
 
 ---
 
-## Známe limitácie
+## limitácie a issues 
+Vyhľadávanie cez názov/IČO stále funguje cez API, zmenil by som to na vyhľadávanie v databáze.  
 
 ### Dáta
 - **Žiadne finančné údaje** — ARES VR API neposkytuje tržby, zisk ani účtovné závierky. Tie sú dostupné len ako PDF na [justice.cz](https://justice.cz).
-- **Oneskorené aktualizácie** — ČSÚ RES CSV sa aktualizuje 2× mesačne. Nové firmy sa objavia s oneskorením až 2 týždne. Pre okamžité dáta by bolo potrebné priame napojenie na ARES API.
-- **Len 4 právne formy** — s.r.o., a.s., k.s., v.o.s. Živnostníci (OSVČ), družstvá, štátne podniky a iné formy nie sú zahrnuté.
-- **Bez histórie** — zobrazuje len aktuálny stav. Historické zmeny (predchádzajúci jednatelia, staré adresy) nie sú k dispozícii.
+- Email a čísla väčšinou fyzické osoby nemajú zverejnené, keďtak iba firemné na svojich stránkach. 
 
 ### Detail firmy (ARES VR)
 - **Rate limit 500 req/min** — pri vysokej návštevnosti môže byť detail pomalší.
@@ -83,11 +82,14 @@ Build trvá ~5 minút. DB je baked do Docker image cez Git LFS.
 - **Nie všetky firmy majú VR záznam** — niektoré staršie s.r.o. nie sú v Obchodnom registri (Veřejný rejstřík), detail bude prázdny.
 
 ### Databáza & Deployment
-- **SQLite nie je vhodný pre vysokú záťaž** — pri súbežných zápisoch (caching detailov) môže dôjsť k zamknutiu DB. Pre produkciu s väčšou návštevnosťou odporúčame migráciu na PostgreSQL (napr. Neon, Supabase).
+- **SQLite nie je vhodný pre vysokú záťaž** — pri súbežných zápisoch (caching detailov) môže dôjsť k zamknutiu DB. Pre produkciu s väčšou návštevnosťou odporúčame migráciu na PostgreSQL
 - **DB v Docker image** — každý sync vyžaduje nový build a redeploy (~5 min). Nie je možné aktualizovať DB bez redeployu.
 - **Cloud Run scale-to-zero** — pri prvom requeste po dlhej nečinnosti môže byť cold start ~2–3 sekundy.
 - **Bez perzistentného storage** — záznamy z ARES VR API cachované počas behu kontajnera sa stratia pri reštarte/redeployi.
 
 ### Vyhľadávanie
-- **ARES API limit 1000 výsledkov** — pre populárne výrazy (napr. "Auto") vráti ARES chybu. Riešenie: spresniť dotaz.
+- **ARES API limit 1000 výsledkov** — pre populárne výrazy (napr. "Auto") vráti ARES chybu. 
 - **Vyhľadávanie nie je fulltext** — ARES API robí word-token matching, nie substring search. Hľadanie "nova" nenájde "Inovace s.r.o.".
+
+### Čas venovaný tomuto projektu:
+- cca 12 hodín čistého pracovného času
